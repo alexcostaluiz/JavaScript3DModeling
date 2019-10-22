@@ -5,3 +5,11 @@
 A 3D modeling program written in JavaScript.
 
 Not written for general-purpose use, but useful for inspiration. See it in action here: [alexcostaluiz.com](http://alexcostaluiz.com).
+
+## Authors
+
+* **Alexander Luiz Costa** - *Initial work* - [alexcostaluiz](https://github.com/alexcostaluiz)
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md) file for details
