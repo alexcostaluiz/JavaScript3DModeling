@@ -1,703 +1,782 @@
 /**
+ * shapes.js
+ * 05/31/2020
+ * 
+ * Defines various shapes to be used in the home page 3D interactive model.
+ * 
  * Shapes:
  * - cube
  * - sphere
- * - full sphere
+ * - nested sphere
  * - spiral sphere
  * - noisy sphere
  * - disk
  * - ray
- * - energy
+ * - crescents
  * - torus
- * - meshes
+ * - contorted torus
  * - horn torus
  * - interlocking tori
  * - adjusted horn torus
+ * - nautilus shell
+ * - meshes
+ * 
+ * @author Alexander Luiz Costa
  */
 
 /**
- * An abstract representation of a shape, maintains a collection of points.
- * Should not be instantiated.
+ * An abstract representation of a shape. Maintains a collection of points.
+ * 
+ * @abstract
  */
 class Shape {
+  /**
+   * Constructs a shape.
+   *
+   * @param {?Element} parent The DOM element to which to append points if
+   *     the point should be attached.
+   */
+  constructor(parent) {
+    if (this.constructor === Shape) {
+      throw new TypeError('Abstract class "Shape" cannot be instantiated directly.');
+    }
+    
+    this.parent = parent;
+
     /**
-     * Constructs a shape.
+     * The collection of points which make up this shape.
      *
-     * @param parent the DOM element to which to append points if the point
-     * should be attached; can be undefined
+     * @type {!Array<Point>}
      */
-    constructor(parent) {
-	if (this.constructor === Shape)  {
-	    throw new TypeError('Abstract class "Shape" cannot be instantiated directly.')
-	}
-	this.points = new Array()
-	this.parent = parent
-    } // constructor
-    
-    /**
-     * Adds a point to this shape
-     */
-    add(p) {
-	this.points.push(p)
-    } // add
-    
-    /**
-     * Removes the last point from this shape.
-     */
-    pop() {
-	var p = this.points.pop()
-	p.node.remove()
-    } // pop
-    
-    /*
-     * Rotates points around the x-axis.
-     * 
-     * @param rad radians by which to rotate points (should be small to avoid
-     * jumpy animations (~ Math.PI / 360))
-     */
-    rotateX(rad) {
-	for (var i = 0; i < this.points.length; i++) {
-	    this.points[i].rotateX(rad)
-	}
-    } // rotateX
+    this.points = [];
 
-    /*
-     * Rotates points around the y-axis.
-     * 
-     * @param rad radians by which to rotate points (should be small to avoid
-     * jumpy animations (~ Math.PI / 360))
-     */
-    rotateY(rad) {
-	for (var i = 0; i < this.points.length; i++) {
-	    this.points[i].rotateY(rad)
-	}
-    } // rotateY
-
-    /*
-     * Rotates points around the z-axis.
-     * 
-     * @param rad radians by which to rotate points (should be small to avoid
-     * jumpy animations (~ Math.PI / 360))
-     */
-    rotateZ(rad) {
-	for (var i = 0; i < this.points.length; i++) {
-	    this.points[i].rotateZ(rad)
-	}
-    } // rotateZ
-    
-    /** 
-     * Draws all the points of this shape.
-     */
-    draw() {
-	for (var i = 0; i < this.points.length; i++) {
-	    this.points[i].draw()
-	}
-    } // draw
-    
     /**
-     * Sets the name of this shape
+     * The name of this shape to be displayed above it. Subclasses should
+     * initialize this property in their constructor.
      *
-     * @param name the new name
+     * @type {string}
      */
-    setName(name) {
-	this.name = name
-	// THIS IS WRONG
-	if (this.name == "mesh") this.func = shape.func
-	else this.func = undefined
-    } // setName
-    
-    // collect distances necessary to morph to "shape"
-    computeDistance(form) {
-	var distance = new Array()
+    this.name = undefined;
+  }
+  
+  /**
+   * Adds a point to this shape.
+   * @see Point (in point.js)
+   * 
+   * @param {!Point} p The point to add.
+   */
+  add(p) {
+    this.points.push(p);
+  }
 
-	// compute the distance for all points in this
-	for (var i = 0; i < this.points.length; i++) {
-	    // mark point for removal if it is not necessary to morph to form
-	    if (i >= form.points.length) {
-		distance.push([Math.random() * 1.8 - 0.9, Math.random() * 1.8 - 0.9, 2, true])
-	    } else {
-		var tp = this.points[i]
-		var op = form.points[i]
-		
-		var dx = op.x - tp.x
-		var dy = op.y - tp.y
-		var dz = op.z - tp.z
-		
-		distance.push([dx, dy, dz])
-	    }
-	}
-	
-	// if form requires more points, add new ones
-	var tlength = this.points.length
-	var olength = form.points.length
-	if (olength > tlength) {
-	    var dl = olength - tlength
-	    for (var i = 0; i < dl; i++) {
-		var x = Math.random() * 1.25 - 0.625
-		var y = Math.random() * 1.25 - 0.625
-		var z = Math.random() * 1.25 - 0.625
-		var p = new Point(x, y, z, this.parent)
-		//p.node.style.opacity = 0
-		this.add(p)
-		var op = form.points[tlength + i]
-		distance.push([op.x - x, op.y - y, op.z - z])
-	    }
-	}
-	return distance
-    } // computeDistance
+  /**
+   * Inserts a point in this shape at the specified index.
+   *
+   * @param {number} i The index at which to insert.
+   * @param {!Point} p The point to insert.
+   */
+  insert(i, p) {
+    this.points.splice(i, 0, p);
+  }
+
+  /**
+   * Removes the specified point from this shape if it exists in
+   * this shape.
+   * 
+   * @param {!Point} p The point to remove.
+   */
+  remove(p) {
+    const i = this.points.indexOf(p);
+    if (i >= 0) {
+      this.points.splice(i, 1);
+      p.node.remove();
+    }
+  }
+  
+  /**
+   * Rotates all points in this shape around the x-axis.
+   * 
+   * @param {number} rad The radians by which to rotate points. Should be
+   *     small to avoid jumpy animations (~ Math.PI / 360).
+   */
+  rotateX(rad) {
+    for (const point of this.points) {
+      point.rotateX(rad);
+    }
+  }
+  
+  /**
+   * Rotates all points in this shape around the y-axis.
+   * 
+   * @param {number} rad The radians by which to rotate points. Should be
+   *     small to avoid jumpy animations (~ Math.PI / 360).
+   */
+  rotateY(rad) {
+    for (const point of this.points) {
+      point.rotateY(rad);
+    }
+  }
+  
+  /**
+   * Rotates all points in this shape around the z-axis.
+   * 
+   * @param {number} rad The radians by which to rotate points. Should be
+   *     small to avoid jumpy animations (~ Math.PI / 360).
+   */
+  rotateZ(rad) {
+    for (const point of this.points) {
+      point.rotateZ(rad);
+    }
+  }
+  
+  /** 
+   * Draws all points of this shape.
+   */
+  draw() {
+    for (const point of this.points) {
+      point.draw();
+    }
+  }
+
+  /**
+   * Returns an array of three-dimensional distances for each point from
+   * this shape's form to the specified form.
+   *
+   * @param {!Shape} form The shape to which to be morphed.
+   */
+  computeDistance(form) {
+    let diff = form.points.length - this.points.length;
     
-    // DEBUG //
-    // DEBUG // 
-    // DEBUG //
-    duplicates() {
-	console.log(this.points.length)
-	var distinct = new Array()
-	for (var i = 0; i < this.points.length; i++) {
-	    var p = this.points[i]
-	    var h = false
-	    for (var j = 0; j < distinct.length; j++) {
-		var q = distinct[j]
-		if (equal(p.x, q.x) && equal(p.y, q.y) && equal(p.z, q.z)) {
-		    h = true
-		}
-	    }
-	    if (!h) distinct.push(p)
-	}
-	console.log(this.points.length - distinct.length)
-    } // duplicates
-} // Shape
+    // Add extra points deep in z-axis if necessary.
+    for (let i = 0; i < diff; i++) {
+      // New points will come from random position near the
+      // center of the viewport.
+      const x = Math.random() * 1.25 - 0.75;
+      const y = Math.random() * 1.25 - 0.75;
+      const z = 1;
+      this.insert(Math.floor(Math.random() * this.points.length),
+                  new Point(x, y, z, this.parent));
+    }
+
+    const distances = new Array(this.points.length);
+
+    // Mark points for removal that are not necessary.
+    //
+    // Uses a partial yates shuffle to avoid the same index being
+    // overwritten multiple times.
+    if (diff < 0) {
+      diff = -diff;
+      let len = distances.length;
+      const taken = new Array(len);
+      while (diff--) {
+        const i = Math.floor(Math.random() * len);
+        const index = (i in taken) ? taken[i] : i;
+        distances[index] = [
+          /* x= */ Math.random() * 0.3 - 0.15,
+          /* y= */ Math.random() * 0.3 - 0.15,
+          /* z= */ 1,
+          /* remove= */ true,
+        ];
+        taken[i] = (--len in taken) ? taken[len] : len;
+      }
+    }
+    
+    let j = 0;
+    for (let i = 0; i < this.points.length; i++) {
+      if (distances[i] === undefined) {
+        const thisShapePoint = this.points[i];
+        const otherShapePoint = form.points[j++];
+        
+        const dx = otherShapePoint.x - thisShapePoint.x;
+        const dy = otherShapePoint.y - thisShapePoint.y;
+        const dz = otherShapePoint.z - thisShapePoint.z;
+        
+        distances[i] = [dx, dy, dz];
+      }
+    }
+    
+    return distances;
+  }
+}
 
 /**
- * A morph animation. Animations the change from one shape to another.
+ * A morph animation. Animates the change from one shape to another.
  */
 class Morph extends Animation {
-    /**
-     * Constructs a new Morph animation. Morphs the specified shape to the
-     * specified form (another shape object).
-     *
-     * @param shape a shape that is attached to the DOM
-     * @param form another shape that is not attached to the DOM to which 
-     * shape will be morphed
-     */
-    constructor(shape, form) {
-	super(shape.parent)
-	this.shape = shape
-	this.count = 0
-	this.distance = shape.computeDistance(form)
-	this.shape.setName(form.name)
-	Animator.cancel(this.node.id, Exhibit)
-	// TODO: Do this better
-	var sname = document.querySelector(".shape")
-	Animator.queue(new Reveal(sname, this.shape.name))
-    } // constructor
+  /**
+   * Constructs a new Morph animation. Morphs the specified shape to the
+   * specified form (another shape object).
+   *
+   * @param {!Shape} shape A shape that is attached to the DOM.
+   * @param {!Shape} form Another shape that is not attached to the
+   *     DOM to which `shape` will be morphed.
+   */
+  constructor(shape, form) {
+    super(shape.parent);
+    this.shape = shape;
+    this.shape.name = form.name;
     
-    anim() {
-	// end morph
-	if (this.count === 30) {
-	    Animator.queue(new Exhibit(this.shape))
-	    return true
-	}
-	
-	// move each point one increment towards its destination
-	for (var i = this.shape.points.length - 1; i >= 0; i--) {
-	    var p = this.shape.points[i]
+    /**
+     * The current animation frame.
+     * 
+     * @type {number}
+     */
+    this.frameCount = 0;
 
-	    p.x += this.distance[i][0] / 30
-	    p.y += this.distance[i][1] / 30
-	    p.z += this.distance[i][2] / 30
-	    
-	    if (this.count == 29 && this.distance[i][3]) {
-		shape.pop()
-	    }
-	}
+    /**
+     * The total number of frames for this animation.
+     * 
+     * @type {number}
+     */
+    this.totalFrames = 30;
 
-	this.count++
-    } // anim
-} // Morph
+    /**
+     * An array of three-dimensional distances from each point in
+     * `shape` to each point in `form`.
+     * 
+     * @type {!Array<Array<number, number, number, ?boolean>>}
+     */
+    this.distances = shape.computeDistance(form);
+
+    // Start a reveal animation for the new name of this shape.
+    const shapeLabel = document.querySelector('.shape');
+    Animator.queue(new Reveal(shapeLabel, this.shape.name));
+
+    // Cancel the current Exhibit animation on this shape while
+    // this Morph animation is animating.
+    Animator.cancel(this.node.id, Exhibit);
+  }
+
+  /** @override */
+  anim() {
+    if (this.frameCount === this.totalFrames) {
+      // Resume the Exhibit animation.
+      Animator.queue(new Exhibit(this.shape));
+      return true;
+    }
+    
+    // Move each point in this shape one increment towards
+    // its destination.
+    for (let i = this.shape.points.length - 1; i >= 0; i--) {
+      const p = this.shape.points[i];
+
+      p.x += this.distances[i][0] / this.totalFrames;
+      p.y += this.distances[i][1] / this.totalFrames;
+      p.z += this.distances[i][2] / this.totalFrames;
+
+      // On the last processed frame, remove all points that are not
+      // necessary for the new form.
+      if (this.frameCount === (this.totalFrames - 1) &&
+          this.distances[i][3]) {
+        this.shape.remove(p);
+      }
+    }
+
+    this.frameCount++;
+  }
+}
 
 /**
  * A fading reveal animation for text elements.
  */
 class Reveal extends Animation {
-    /**
-     * Constructs a new Reveal animation.
-     * 
-     * @param node the parent node in which to add letters
-     * @param the text to write in the parent node
-     */
-    constructor(node, text) {
-	super(node)
-	this.text = text
-	this.count = 0
-	// TODO: do this better
-	this.fname = document.querySelector(".shape.fake")
-	this.fname.textContent = this.text
-    } // constructor
+  /**
+   * Constructs a new Reveal animation.
+   * 
+   * @param {!Element} node The parent node in which to add letters.
+   * @param {string} text The string to write within the parent node.
+   */
+  constructor(node, text) {
+    super(node);
+    this.text = text;
     
-    anim() {
-	// finish reveal
-	if (this.count - 14 == this.text.length) {
-	    if (shape.name == "mesh") {
-		var fname = document.querySelector(".function")
-		fname.textContent = "" + shape.func.toString().slice(29, -2) + ""
-		Animator.queue(new Fade(fname, 0.5, 0.0625))
-	    }
-	    return true
-	}
-	
-	// switch for the different stages of the reveal
-	switch (true) {
-	// fade the initial text out
-	case (this.count < 5):
-	    this.node.style.opacity = +this.node.style.opacity - 0.2
-	    // remove all letters
-	    if (this.count == 4) {
-		while (this.node.firstChild) {
-		    this.node.removeChild(this.node.firstChild)
-		}
-	    }
-	    break
-	// reveal empty text
-	case (this.count == 5):
-	    this.node.style.opacity = 1
-	    this.node.style.left = this.fname.offsetLeft + "px"
-	// add and fade in each letter
-	default:
-	    if (this.count - 5 < this.text.length) {
-		var letter = document.createElement("span")
-		letter.style.opacity = 0
-		letter.textContent = this.text[this.count - 5]
-		this.node.appendChild(letter)
-	    }
-	    for (var i = 0; i < this.node.childNodes.length; i++) {
-		var l = this.node.childNodes[i]
-		l.style.opacity = +l.style.opacity + 0.1
-	    }
-	    break
-	} // switch
-	
-	this.count++
-    } // anim
-} // Reveal
+    /**
+     * The animation frame.
+     * 
+     * @type {number}
+     */
+    this.frameCount = 0;
 
-// a cube!
-class Cube extends Shape {
-    constructor(parent) {
-	super(parent)
-	this.name = "cube"
-	var step = 0.1375
-	var count = 0
-	for (var i = -0.55; i <= 0.55; i += step) {
-	    for (var j = -0.55; j <= 0.55; j += step) {
-		for (var k = -0.55; k <= 0.55; k += step) {
-		    if (count % pointCountScale == 0) {
-			super.add(new Point(i, j, k, parent))
-		    }
-		    count++
-		}
-	    }
-	}
+    /**
+     * An invisible element which gives the correct left padding
+     * for this reveal animation.
+     * 
+     * @type {!Element}
+     */
+    this.fname = document.querySelector('.shape.fake');
+    this.fname.textContent = this.text;
+  }
+
+  /** @override */
+  anim() {
+    if (this.frameCount - 14 === this.text.length) {
+      return true;
     }
-} // Cube
-
-// a sphere!
-class Sphere extends Shape {
-    constructor(parent) {
-	super(parent)
-	this.name = "fibonacci lattice"
-	var numpts = 1000 / pointCountScale
-	for (var i = 0; i < numpts; i++) {
-	    var phi = Math.acos(1 - 2 * (i + 0.5) / numpts)
-	    var theta = Math.PI * (1 + Math.sqrt(5)) * (i + 0.5)
-	    var radius = 0.9
-	    var x = radius * Math.cos(theta) * Math.sin(phi)
-	    var y = radius * Math.sin(theta) * Math.sin(phi)
-	    var z = radius * Math.cos(phi)
-	    super.add(new Point(x, y, z, parent))
-	}
+    
+    // Controls the different stages of the reveal.
+    //
+    // 1. Fade the initial letters out of view.
+    // 2. Remove all the letters.
+    // 3. Reveal the empty string and set left padding.
+    // 4. Add and fade in each letter of the new string.
+    switch (true) {
+    case (this.frameCount < 5): // 1
+      this.node.style.opacity = +this.node.style.opacity - 0.2;
+      if (this.frameCount == 4) { // 2
+        while (this.node.firstChild) {
+          this.node.removeChild(this.node.firstChild);
+        }
+      }
+      break;
+      
+    case (this.frameCount == 5): // 3
+      this.node.style.opacity = 1;
+      this.node.style.left = this.fname.offsetLeft + 'px';
+      // Fall through.
+      
+    default: // 4
+      if (this.frameCount - 5 < this.text.length) {
+        const letter = document.createElement('span');
+        letter.style.opacity = 0;
+        letter.textContent = this.text[this.frameCount - 5];
+        this.node.appendChild(letter);
+      }
+      for (const letter of this.node.childNodes) {
+        letter.style.opacity = +letter.style.opacity + 0.1;
+      }
+      break;
     }
-} // Sphere
-
-// a filled in sphere!
-class FullSphere extends Shape {
-    constructor(parent) {
-	super(parent)
-	this.name = "nested fibonacci lattice"
-	var numpts = 250 / pointCountScale
-	for (var j = 0; j <= 0.9; j += 0.225) {
-	    for (var i = 0; i < numpts; i++) {
-		var phi = Math.acos(1 - 2 * (i + 0.5) / numpts)
-		var theta = Math.PI * (1 + Math.sqrt(5)) * (i + 0.5)
-		var radius = j
-		var x = radius * Math.cos(theta) * Math.sin(phi)
-		var y = radius * Math.sin(theta) * Math.sin(phi)
-		var z = radius * Math.cos(phi)
-		super.add(new Point(x, y, z, parent))
-		if (j == 0) break
-	    }
-	}
-    }
-} // Sphere
-
-// a spiraling sphere!
-class SpiralSphere extends Shape {
-    constructor(parent) {
-	super(parent)
-	this.name = "adjusted fibonacci lattice"
-	var numpts = 1000 / pointCountScale
-	for (var i = 0; i < numpts; i++) {
-	    var phi = Math.acos(1 - 2 * (i + 0.5) / numpts)
-	    var theta = Math.PI + (1 + Math.sqrt(5)) * (i + 0.5)
-	    var radius = 0.9
-	    var x = radius * Math.cos(theta) * Math.sin(phi)
-	    var y = radius * Math.sin(theta) * Math.sin(phi)
-	    var z = radius * Math.cos(phi)
-	    super.add(new Point(x, y, z, parent))
-	}
-    }
-} // SpiralSphere
-
-// random points within a spherical shape
-class NoisySphere extends Shape {
-    constructor(parent) {
-	super(parent)
-	this.name = "noisy sphere"
-	var count = 0
-	for (var i = -1; i < 1; i += 0.2) {
-	    for (var j = -1; j < 1; j += 0.2) {
-		for (var k = -1; k < 1; k += 0.2) {
-		    if (count % pointCountScale !== 0) {
-			count++
-			continue
-		    }
-		    var lambda = Math.pow(Math.random(), 1/3)
-		    var u = Math.random() * 2 - 1
-		    var u2 = Math.sqrt(1 - Math.pow(u, 2))
-		    var phi = Math.random() * 2 * Math.PI
-		    var radius = 0.9
-		    var x = radius * lambda * u2 * Math.cos(phi)
-		    var y = radius * lambda * u2 * Math.sin(phi)
-		    var z = radius * lambda * u
-		    super.add(new Point(x, y, z, parent))
-		    count++
-		}
-	    }
-	}
-    }
-} // NoisySphere
-
-// intersecting disks
-class Disk extends Shape {
-    constructor(parent) {
-	super(parent)
-	this.name = "intersecting disks"
-	var count = 0
-	for (var i = 0; i <= 1; i += 0.0625) {
-	    for (var j = 0; j <= 1; j += 0.125) {
-		for (var k = 0; k < 1; k += 0.125) {
-		    if (count % pointCountScale !== 0) {
-			count++
-			continue
-		    }
-		    var theta = i * Math.PI
-		    var phi = j * 2 * Math.PI
-		    var radius = k
-		    var x = radius * Math.sin(theta) * Math.cos(phi)
-		    var y = radius * Math.sin(theta) * Math.sin(phi)
-		    var z = radius * Math.cos(theta)
-		    if (!(x == 0 && y == 0 && z == 0)) {
-			super.add(new Point(x, z, y, parent))
-		    }
-		    count++
-		}
-		if (i == 0) break
-	    }
-	}
-    }
-} // Disk
-
-// beaming rays, like sun :)
-class Ray extends Shape {
-    constructor(parent) {
-	super(parent)
-	this.name = "beaming rays; like a sun"
-	var numpts = 200 / pointCountScale
-	for (var i = 0; i < numpts; i++) {
-	    var phi = Math.acos(1 - 2 * (i + 0.5) / numpts)
-	    var theta = Math.PI * (1 + Math.sqrt(5)) * (i + 0.5)
-	    var radius = 0.28
-	    var x = radius * Math.cos(theta) * Math.sin(phi)
-	    var y = radius * Math.sin(theta) * Math.sin(phi)
-	    var z = radius * Math.cos(phi)
-	    super.add(new Point(x, y, z, parent))
-	}
-	var count = 0
-	for (var i = 0; i <= 1; i += 0.125) {
-	    for (var j = 0; j <= 1; j += 0.1) {
-		for (var k = 0; k <= 1; k += 0.125) {
-		    if (count % pointCountScale !== 0) {
-			count++
-			continue
-		    }
-		    var theta = i * Math.PI
-		    var phi = j * 2 * Math.PI
-		    var radius = (k + 0.9) * 0.5
-		    var x = radius * Math.sin(theta) * Math.cos(phi)
-		    var y = radius * Math.sin(theta) * Math.sin(phi)
-		    var z = radius * Math.cos(theta)
-		    super.add(new Point(x, z, y, parent))
-		    count++
-		}
-		if (i == 0) break
-	    }
-	}
-    }
-} // Ray
-
-// a mesh-like shape, basically a 3D graph of a 3D function
-class Mesh extends Shape {
-    constructor(parent, func) {
-	super(parent)
-	this.name = "mesh"
-
-	if (func == undefined) {
-	    func = Math.floor(Math.random() * functions.length)
-	}
-	
-	this.func = functions[func]
-	
-	var count = 0
-	for (var x = -0.7; x < 0.7; x += 0.04375) {
-	    for (var z = -0.7; z < 0.7; z += 0.04375) {
-		if (count % pointCountScale !== 0) {
-		    count++
-		    continue
-		}
-		var y = functions[func](x, z)
-		if (y != undefined) super.add(new Point(x, y, z, parent))
-		count++
-	    }
-	}
-	
-	shuffle(this.points)
-	// add points
-    }
-} // Mesh
-
-// pulsating energy!
-class Energy extends Shape {
-    constructor(parent) {
-	super(parent)
-	this.name = "work in progress"
-	this.pulses = 0
-	var numpts = 1000 / pointCountScale
-	for (var i = 0; i < numpts; i++) {
-	    var phi = Math.acos(1 - 2 * (i + 0.5) / numpts)
-	    var theta = Math.PI * (1 + Math.sqrt(5)) * (i + 0.5)
-	    var radius = 0.6
-	    var x = radius * Math.cos(theta) * Math.sin(phi)
-	    var y = radius * Math.sin(theta) * Math.sin(phi)
-	    var z = radius * Math.cos(phi)
-	    super.add(new Point(x, y, z, parent))
-	}
-	//this.pulse(this)
-    }
-
-    pulse(me) {
-	var numpts = me.points.length
-	for (var i = 0; i < numpts; i++) {
-	    var p = me.points[i]
-	    var phi = Math.acos(1 - 2 * (i + 0.5) / numpts)
-	    var theta = Math.PI * (1 + Math.sqrt(5)) * (i + 0.5)
-	    var radius = 0.6
-	    var x = radius * Math.cos(theta) * Math.sin(phi)
-	    var y = radius * Math.sin(theta) * Math.sin(phi)
-	    var z = radius * Math.cos(phi)
-	    
-	    p.x = x
-	    p.y = y
-	    p.z = z
-	}
-	me.pulses = (me.pulses + Math.PI / 16 >= 2 * Math.PI) ? 0 : me.pulses + Math.PI / 16
-
-	window.requestAnimationFrame(() => {
-	    me.pulse(me)
-	})
-    }
-} // Energy
-
-class Torus extends Shape {
-    constructor(parent) {
-	super(parent)
-	this.name = "torus; like a doughnut"
-	var R = 0.65
-	var r = 0.3
-	var step = 0.001 * pointCountScale
-	for (var i = 0; i < 1; i += step) {
-	    var phi = i * 2 * Math.PI
-	    var theta = 47 * phi
-	    var x = (R + r * Math.cos(theta)) * Math.cos(phi)
-	    var y = (R + r * Math.cos(theta)) * Math.sin(phi)
-	    var z = r * Math.sin(theta)
-	    super.add(new Point(x, y, z, parent))
-	}
-    }
-} // Torus
-
-class TwistedTorus extends Shape {
-    constructor(parent) {
-	super(parent)
-	this.name = "twisted torus"
-	var step = 0.001 * pointCountScale
-	for (var i = 0; i < 1; i += step) {
-	    var u = i * 2 * Math.PI
-	    var v = 58 * u
-	    var x = 0.08 * (8+(Math.sin(2*(u-v+Math.sin(v-u)))+2.5)*Math.cos(u))*Math.cos(v)
-	    var y = 0.08 * (8+(Math.sin(2*(u-v+Math.sin(v-u)))+2.5)*Math.cos(u))*Math.sin(v)
-	    var z = 0.08 * ((Math.sin(2*(u-v+Math.sin(v-u)))+2.5)*Math.sin(u))
-	    super.add(new Point(x, y, z, parent))
-	}
-    }
-} // Torus
-
-class HornTorus extends Shape {
-    constructor(parent) {
-	super(parent)
-	this.name = "horn torus"
-	var R = 0.47
-	var r = 0.47
-	var step = 0.001 * pointCountScale
-	for (var i = 0; i < 1; i += step) {
-	    var phi = i * 2 * Math.PI
-	    var theta = 45 * phi
-	    var x = (R + r * Math.cos(theta)) * Math.cos(phi)
-	    var y = (R + r * Math.cos(theta)) * Math.sin(phi)
-	    var z = r * Math.sin(theta)
-	    super.add(new Point(x, z, y, parent))
-	}
-    }
-} // HornTorus
-
-class Tori extends Shape {
-    constructor(parent) {
-	super(parent)
-	this.name = "interlocking tori"
-	var R = 0.45
-	var r = 0.225	
-	var step = 0.002 * pointCountScale
-	for (var i = 0; i < 1; i += step) {
-	    var phi = i * 2 * Math.PI
-	    var theta = 45 * phi
-	    var x = (R + r * Math.cos(theta)) * Math.cos(phi)
-	    var y = (R + r * Math.cos(theta)) * Math.sin(phi)
-	    var z = r * Math.sin(theta)
-	    super.add(new Point(x + r, z, y, parent))
-	}
-	for (var i = 0; i < 1; i += step) {
-	    var phi = i * 2 * Math.PI
-	    var theta = 45 * phi
-	    var x = (R + r * Math.cos(theta)) * Math.cos(phi)
-	    var y = (R + r * Math.cos(theta)) * Math.sin(phi)
-	    var z = r * Math.sin(theta)
-	    super.add(new Point(x - r, y, z, parent))
-	}
-    }
-} // Tori
-
-class Cylinder extends Shape {
-    constructor(parent) {
-	super(parent)
-	this.name = "adjusted horn torus"
-	var R = 0.55
-	var r = 0.55
-	var step = 0.001 * pointCountScale
-	for (var i = 0; i < 1; i += step) {
-	    var phi = i * 2 * Math.PI
-	    var theta = 45 * phi
-	    var inter = Math.cos(theta) > 0.4 ? 0.4 : Math.cos(theta)
-	    var x = (R + r * inter) * Math.cos(phi)
-	    var y = (R + r * inter) * Math.sin(phi)
-	    var z = r * Math.sin(theta)
-	    super.add(new Point(x, z, -y, parent))
-	}
-    }
-} // Cylinder
-
-class Shell extends Shape {
-    constructor(parent) {
-	super(parent)
-	this.name = "nautilus shell"
-	var count = 0
-	for (var i = 0; i < 1; i += 0.03125) {
-	    for (var j = 0; j < 1; j += 0.03125) {
-		if (count % pointCountScale !== 0) {
-		    count++
-		    continue
-		}
-		var theta = i * Math.PI
-		var phi = j * 11 * Math.PI / 4 - Math.PI / 4
-		var x = 0.5 * Math.pow(1.1, phi) * (Math.pow(Math.sin(theta), 2) * Math.sin(phi))
-		var y = 0.5 * Math.pow(1.1, phi) * (Math.pow(Math.sin(theta), 2) * Math.cos(phi))
-		var z = 0.5 * Math.pow(1.1, phi) * (Math.sin(theta) * Math.cos(theta))
-		super.add(new Point(-x, y, z, parent))
-		count++
-	    }
-	}
-    }
+    
+    this.frameCount++;
+  }
 }
-
-// 1000 points at the origin, used to transition to first shape
-// actually, changed this to a bunch of random points for zoom in effect
-class Singularity extends Shape {
-    constructor(parent) {
-	super(parent)
-	this.name = "singularity"
-	for (var i = 0; i < 1000 / pointCountScale; i++) {
-	    super.add(new Point(Math.random() * 2.5 - 1.25, 
-				Math.random() * 2.5 - 1.25,
-				Math.random() * 2.5 - 1.25, parent))
-	}
-    }
-} // Singularity
 
 /**
- * Returns a shape based on the specified id.
- * (id corresponds to index in shapes array, see below)
- * 
- * @param i an integer specifying which shape to return. If i < 0, a random
- * shape is returned
- * @param parent the DOM element to which to append points if the point
- * should be attached; can be undefined
+ * A cube.
  */
-function getShape(i, parent) {
-    if (i < 0) {
-	var newMorph = Math.floor(Math.random() * (shapes.length - 1))
-	while (newMorph == morphc) {
-	    newMorph = Math.floor(Math.random() * (shapes.length - 1))
-	}
-	morphc = newMorph
-    } else morphc = i
-
-    return new shapes[morphc](parent)
+class Cube extends Shape {
+  constructor(parent) {
+    super(parent);
+    this.name = 'cube';
+    const step = 0.122222;
+    for (let x = -0.55; x <= 0.55; x += step) {
+      for (let y = -0.55; y <= 0.55; y += step) {
+        for (let z = -0.55; z <= 0.55; z += step) {
+          super.add(new Point(x, y, z, parent));
+        }
+      }
+    }
+  }
 }
 
-var shapes = [Cube, Sphere, FullSphere, SpiralSphere, NoisySphere, Disk, Ray, Energy, Torus, TwistedTorus, HornTorus, Tori, Cylinder, Shell, Mesh, Singularity]
+/**
+ * A sphere lattice.
+ */
+class Sphere extends Shape {
+  constructor(parent) {
+    super(parent);
+    this.name = 'fibonacci lattice';
+    const numPoints = 1000;
+    for (let i = 0; i < numPoints; i++) {
+      const phi = Math.acos(1 - 2 * (i + 0.5) / numPoints);
+      const theta = Math.PI * (1 + Math.sqrt(5)) * (i + 0.5);
+      const radius = 0.9;
+      const x = radius * Math.cos(theta) * Math.sin(phi);
+      const y = radius * Math.sin(theta) * Math.sin(phi);
+      const z = radius * Math.cos(phi);
+      super.add(new Point(x, y, z, parent));
+    }
+  }
+}
+
+/**
+ * Nested sphere lattices.
+ */
+class FullSphere extends Shape {
+  constructor(parent) {
+    super(parent);
+    this.name = 'nested fibonacci lattice';
+    const numPoints = 250;
+    for (let j = 0.225; j <= 0.9; j += 0.225) {
+      for (let i = 0; i < numPoints; i++) {
+        const phi = Math.acos(1 - 2 * (i + 0.5) / numPoints);
+        const theta = Math.PI * (1 + Math.sqrt(5)) * (i + 0.5);
+        const radius = j;
+        const x = radius * Math.cos(theta) * Math.sin(phi);
+        const y = radius * Math.sin(theta) * Math.sin(phi);
+        const z = radius * Math.cos(phi);
+        super.add(new Point(x, y, z, parent));
+      }
+    }
+  }
+}
+
+/**
+ * Adjusted sphere lattice.
+ */
+class SpiralSphere extends Shape {
+  constructor(parent) {
+    super(parent);
+    this.name = 'adjusted fibonacci lattice';
+    const numPoints = 1000;
+    for (let i = 0; i < numPoints; i++) {
+      const phi = Math.acos(1 - 2 * (i + 0.5) / numPoints);
+      const theta = Math.PI + (1 + Math.sqrt(5)) * (i + 0.5);
+      const radius = 0.9;
+      const x = radius * Math.cos(theta) * Math.sin(phi);
+      const y = radius * Math.sin(theta) * Math.sin(phi);
+      const z = radius * Math.cos(phi);
+      super.add(new Point(x, y, z, parent));
+    }
+  }
+}
 
 /*
- * default mesh functions
+ * Random points within a spherical volume.
  */
-
-var a = function (x, z) {
-    return Math.sin(-Math.pow(x * 2.2, 2) + Math.pow(z * 3, 2)) * (x / 1.5)
+class NoisySphere extends Shape {
+  constructor(parent) {
+    super(parent);
+    this.name = 'noisy sphere';
+    for (let i = -1; i < 1; i += 0.2) {
+      for (let j = -1; j < 1; j += 0.2) {
+        for (let k = -1; k < 1; k += 0.2) {
+          const lambda = Math.pow(Math.random(), 1/3);
+          const u = Math.random() * 2 - 1;
+          const u2 = Math.sqrt(1 - Math.pow(u, 2));
+          const phi = Math.random() * 2 * Math.PI;
+          const radius = 0.9;
+          const x = radius * lambda * u2 * Math.cos(phi);
+          const y = radius * lambda * u2 * Math.sin(phi);
+          const z = radius * lambda * u;
+          super.add(new Point(x, y, z, parent));
+        }
+      }
+    }
+  }
 }
 
-var b = function (x, z) {
-    return (17.5 * x * z) / Math.exp((Math.pow(x * 2.5, 2)) + (Math.pow(z * 2.5, 2)))
+/**
+ * Intersecting disks.
+ */
+class Disk extends Shape {
+  constructor(parent) {
+    super(parent);
+    this.name = 'intersecting disks';
+    for (let i = 0; i <= 1; i += 0.0625) {
+      for (let j = 0; j <= 1; j += 0.125) {
+        for (let k = 0; k < 1; k += 0.125) {
+          const theta = i * Math.PI;
+          const phi = j * 2 * Math.PI;
+          const radius = k;
+          const x = radius * Math.sin(theta) * Math.cos(phi);
+          const y = radius * Math.sin(theta) * Math.sin(phi);
+          const z = radius * Math.cos(theta);
+          if (!(x == 0 && y == 0 && z == 0)) {
+            super.add(new Point(x, z, y, parent));
+          }
+        }
+        if (i == 0) {
+          break;
+        }
+      }
+    }
+  }
 }
 
-var c = function (x, z) {
-    var y = 1/((Math.pow(x, 2) + Math.pow(z, 2)) * 12 + 0.0625) * 0.5 - 0.33
-    return (y >= 1) ? undefined : y
+/**
+ * Beaming rays, like a sun :).
+ */
+class Ray extends Shape {
+  constructor(parent) {
+    super(parent);
+    this.name = 'beaming rays; like a sun';
+
+    // Interior sphere.
+    const numPoints = 200;
+    for (let i = 0; i < numPoints; i++) {
+      const phi = Math.acos(1 - 2 * (i + 0.5) / numPoints);
+      const theta = Math.PI * (1 + Math.sqrt(5)) * (i + 0.5);
+      const radius = 0.28;
+      const x = radius * Math.cos(theta) * Math.sin(phi);
+      const y = radius * Math.sin(theta) * Math.sin(phi);
+      const z = radius * Math.cos(phi);
+      super.add(new Point(x, y, z, parent))
+    }
+    
+    // Rays.
+    for (let i = 0; i <= 1; i += 0.125) {
+      for (let j = 0; j <= 1; j += 0.1) {
+        for (let k = 0; k <= 1; k += 0.125) {
+          const theta = i * Math.PI;
+          const phi = j * 2 * Math.PI;
+          const radius = (k + 0.9) * 0.5;
+          const x = radius * Math.sin(theta) * Math.cos(phi);
+          const y = radius * Math.sin(theta) * Math.sin(phi);
+          const z = radius * Math.cos(theta);
+          super.add(new Point(x, z, y, parent));
+        }
+        if (i == 0) {
+          break;
+        }
+      }
+    }
+  }
 }
 
-var functions = [a, b, c]
+/**
+ * Two crescent shapes.
+ */
+class Crescents extends Shape {
+  constructor(parent) {
+    super(parent);
+    this.name = 'kissing crescents';
+    const step = 0.001;
+    for (let i = 0; i < 1; i += step) {
+      const v = i;
+      const u = 120 * v;
+      const x = (2 + Math.sin(2* Math.PI* u) *Math.sin(2 *Math.PI* v)) *Math.sin(3* Math.PI *v) * 0.3;
+      const y = (2 + Math.sin(2* Math.PI *u) *Math.sin(2 *Math.PI *v)) *Math.cos(3* Math.PI *v) * 0.3;
+      const z = (Math.cos(2* Math.PI *u) * Math.sin(2* Math.PI* v) + 4 *v - 2) * 0.3;
+      super.add(new Point(x, y, z, parent));
+    }
+  }
+}
+
+/**
+ * A torus (donut).
+ */
+class Torus extends Shape {
+  constructor(parent) {
+    super(parent);
+    this.name = 'torus; like a doughnut';
+    const R = 0.65;
+    const r = 0.3;
+    const step = 0.001;
+    for (let i = 0; i < 1; i += step) {
+      const phi = i * 2 * Math.PI;
+      const theta = 47 * phi;
+      const x = (R + r * Math.cos(theta)) * Math.cos(phi);
+      const y = (R + r * Math.cos(theta)) * Math.sin(phi);
+      const z = r * Math.sin(theta);
+      super.add(new Point(x, y, z, parent));
+    }
+  }
+}
+
+/**
+ * A twisted torus.
+ */
+class TwistedTorus extends Shape {
+  constructor(parent) {
+    super(parent);
+    this.name = 'contorted torus';
+    const N = 4;
+    const R3 = 3;
+    const R = 15;
+    const N2 = 4;
+    const step = 0.03125;
+    for (let i = 0; i < 1; i += step) {
+      for (let j = 0; j < 1; j += step) {
+        const v = i * 2 * Math.PI - Math.PI;
+        const u = j * 2 * Math.PI - Math.PI * Math.pow(v, 1);
+        
+        const f1 = (R3+(R/(10*N))*Math.cos(N2*u/N+((R/(10*N))-R/10)/(R/(10*N))*v)+(R/10-(R/(10*N)))*Math.cos(N2*u/N+v));
+        const f2 = ((R/(10*N))*Math.sin(N2*u/N+((R/(10*N))-R/10)/(R/(10*N))*v)+(R/10-(R/(10*N)))*Math.sin(N2*u/N+v));
+        
+        const x = -Math.sin(u) * f1 * 0.2;
+        const y = Math.cos(u) * f1 * 0.2;
+        const z = f2 * 0.2;
+        
+        super.add(new Point(x, z, y, parent));
+      }
+    }
+  }
+}
+
+/**
+ * A horn torus.
+ */
+class HornTorus extends Shape {
+  constructor(parent) {
+    super(parent);
+    this.name = 'horn torus';
+    const R = 0.47;
+    const r = 0.47;
+    const step = 0.001;
+    for (let i = 0; i < 1; i += step) {
+      const phi = i * 2 * Math.PI;
+      const theta = 45 * phi;
+      const x = (R + r * Math.cos(theta)) * Math.cos(phi);
+      const y = (R + r * Math.cos(theta)) * Math.sin(phi);
+      const z = r * Math.sin(theta);
+      super.add(new Point(x, z, y, parent));
+    }
+  }
+}
+
+/**
+ * Interlocking tori.
+ */
+class Tori extends Shape {
+  constructor(parent) {
+    super(parent);
+    this.name = 'interlocking tori';
+    const R = 0.45;
+    const r = 0.225; 
+    const step = 0.002;
+    for (let i = 0; i < 1; i += step) {
+      const phi = i * 2 * Math.PI;
+      const theta = 45 * phi;
+      const x = (R + r * Math.cos(theta)) * Math.cos(phi);
+      const y = (R + r * Math.cos(theta)) * Math.sin(phi);
+      const z = r * Math.sin(theta);
+      super.add(new Point(x + r, z, y, parent));
+    }
+    for (let i = 0; i < 1; i += step) {
+      const phi = i * 2 * Math.PI;
+      const theta = 45 * phi;
+      const x = (R + r * Math.cos(theta)) * Math.cos(phi);
+      const y = (R + r * Math.cos(theta)) * Math.sin(phi);
+      const z = r * Math.sin(theta);
+      super.add(new Point(x - r, y, z, parent));
+    }
+  }
+}
+
+/**
+ * A cylinder horn torus.
+ */
+class Cylinder extends Shape {
+  constructor(parent) {
+    super(parent);
+    this.name = 'adjusted horn torus';
+    const R = 0.55;
+    const r = 0.55;
+    const step = 0.001;
+    for (let i = 0; i < 1; i += step) {
+      const phi = i * 2 * Math.PI;
+      const theta = 45 * phi;
+      const inter = Math.cos(theta) > 0.4 ? 0.4 : Math.cos(theta);
+      const x = (R + r * inter) * Math.cos(phi);
+      const y = (R + r * inter) * Math.sin(phi);
+      const z = r * Math.sin(theta);
+      super.add(new Point(x, z, -y, parent));
+    }
+  }
+}
+
+/**
+ * A nautilus shell.
+ */
+class Shell extends Shape {
+  constructor(parent) {
+    super(parent);
+    this.name = 'nautilus shell';
+    for (let i = 0; i < 1; i += 0.03125) {
+      for (let j = 0; j < 1; j += 0.03125) {
+        const theta = i * Math.PI;
+        const phi = j * 11 * Math.PI / 4 - Math.PI / 4;
+        const x = 0.5 * Math.pow(1.1, phi) * (Math.pow(Math.sin(theta), 2) * Math.sin(phi));
+        const y = 0.5 * Math.pow(1.1, phi) * (Math.pow(Math.sin(theta), 2) * Math.cos(phi));
+        const z = 0.5 * Math.pow(1.1, phi) * (Math.sin(theta) * Math.cos(theta));
+        super.add(new Point(-x, y, z, parent));
+      }
+    }
+  }
+}
+
+/*
+ * Mesh functions.
+ */
+const meshFunc1 = function (x, z) {
+  return Math.sin(-Math.pow(x * 2.2, 2) + Math.pow(z * 3, 2)) * (x / 1.5);
+}
+const meshFunc2 = function (x, z) {
+  return (17.5 * x * z) / Math.exp((Math.pow(x * 2.5, 2)) + (Math.pow(z * 2.5, 2)));
+}
+
+/**
+ * All the mesh functions.
+ * 
+ * @type {!Array<function(number, number): number>}
+ */
+const functions = [meshFunc1, meshFunc2];
+
+/** 
+ * A mesh-like shape (a 3D graph of a 3D function).
+ */
+class Mesh extends Shape {
+  constructor(parent, func) {
+    super(parent);
+    this.name = 'mesh';
+
+    if (func === undefined) {
+      func = Math.floor(Math.random() * functions.length);
+    }
+    this.func = functions[func];
+    
+    for (let x = -0.7; x < 0.7; x += 0.04375) {
+      for (let z = -0.7; z < 0.7; z += 0.04375) {
+        const y = this.func(x, z);
+        if (y !== undefined) {
+          super.add(new Point(x, y, z, parent));
+        }
+      }
+    }
+  }
+}
+
+/**
+ * 1000 randomly positioned points.
+ */
+class Singularity extends Shape {
+  constructor(parent) {
+    super(parent);
+    this.name = 'singularity';
+    for (let i = 0; i < 1000; i++) {
+      super.add(new Point(
+        Math.random() * 2.5 - 1.25, 
+        Math.random() * 2.5 - 1.25,
+        Math.random() * 2.5 - 1.25,
+        parent,
+      ));
+    }
+  }
+}
+
+/**
+ * All the shapes.
+ * 
+ * @type {!Array<Shape>}
+ */
+const shapes = [
+  Cube, Sphere, FullSphere, SpiralSphere,
+  NoisySphere, Disk, Ray, Crescents, Torus,
+  TwistedTorus, HornTorus, Tori, Cylinder,
+  Shell, Mesh, Singularity,
+];
+
+/**
+ * Returns a shape based on the specified ID. The ID corresponds to an 
+ * index in shapes array below.
+ * 
+ * @param {number} i An integer specifying which shape to return. If 
+ *     i < 0, a random shape is returned.
+ * @param {?Element} parent The DOM element to which to append points
+ *     if the points should be attached. Leave undefined if the shape
+ *     should not be attached to the window.
+ */
+function getShape(i, parent) {
+  if (i < 0) {
+    let newMorph = Math.floor(Math.random() * (shapes.length - 1));
+    while (newMorph === currentShapeIndex) {
+      newMorph = Math.floor(Math.random() * (shapes.length - 1));
+    }
+    currentShapeIndex = newMorph;
+  } else {
+    currentShapeIndex = i;
+  }
+
+  return new shapes[currentShapeIndex](parent);
+}
